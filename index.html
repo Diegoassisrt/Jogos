@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AuditQuest · Estudo ativo para Auditor Fiscal (FGV)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' };</script>
+<style>
+  :root { --bg:#f6f8fb; --card:#fff; --ink:#0f172a; --mute:#64748b; --line:#e2e8f0; --acc:#0d9488; --acc2:#6366f1; }
+  .dark { --bg:#0b1020; --card:#131a2e; --ink:#e8edf8; --mute:#94a3b8; --line:#243049; --acc:#2dd4bf; --acc2:#818cf8; }
+  body { background:var(--bg); color:var(--ink); font-family:'Source Serif 4',Georgia,serif; transition:background .3s; }
+  h1,h2,h3,.ui { font-family:'Sora',system-ui,sans-serif; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:18px; }
+  .mute { color:var(--mute); }
+  .search { border-radius:999px; padding:2px; background:linear-gradient(120deg,var(--acc),var(--acc2),var(--acc)); background-size:200% 200%;
+            box-shadow:0 0 28px -6px var(--acc); animation:flow 8s linear infinite; }
+  @keyframes flow { to { background-position:200% 50%; } }
+  .search input { width:100%; background:var(--card); color:var(--ink); border-radius:999px; padding:1rem 1.5rem; outline:none; font-size:1.05rem; font-family:'Sora',sans-serif; }
+  .chip { border:1px solid var(--line); background:var(--card); border-radius:14px; padding:.75rem 1rem; text-align:left; cursor:pointer; transition:.15s; }
+  .chip:hover { border-color:var(--acc); } .chip.on { box-shadow:0 0 0 2px var(--acc) inset; border-color:var(--acc); }
+  .btn { background:var(--acc); color:#04201d; font-family:'Sora',sans-serif; font-weight:600; border-radius:999px; padding:.7rem 1.6rem; transition:.15s; }
+  .btn:hover { filter:brightness(1.1); } .btn:disabled { opacity:.5; cursor:wait; }
+  .btn2 { border:1px solid var(--line); border-radius:999px; padding:.5rem 1rem; font-family:'Sora',sans-serif; font-size:.85rem; }
+  .opt { display:block; width:100%; text-align:left; border:1px solid var(--line); border-radius:12px; padding:.8rem 1rem; margin-top:.5rem; background:var(--card); transition:.15s; }
+  .opt:hover:not(:disabled) { border-color:var(--acc); }
+  .opt.ok { background:rgba(16,185,129,.18); border-color:#10b981; } .opt.bad { background:rgba(244,63,94,.16); border-color:#f43f5e; }
+  .law { border-left:3px solid var(--acc2); padding:.6rem 1rem; background:rgba(99,102,241,.07); border-radius:0 12px 12px 0; line-height:1.7; }
+  textarea,input.f { width:100%; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:.7rem 1rem; color:var(--ink); outline:none; }
+  .spin { width:34px; height:34px; border:3px solid var(--line); border-top-color:var(--acc); border-radius:50%; animation:sp 1s linear infinite; margin:auto; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce){ .search,.spin{ animation:none; } }
+</style>
+</head>
+<body class="min-h-screen">
+<div class="max-w-3xl mx-auto px-4 pb-16">
+
+  <!-- Cabeçalho: placar + tema + chave da API -->
+  <div class="flex items-center justify-between py-4 text-sm ui gap-2 flex-wrap">
+    <div id="stats" class="mute"></div>
+    <div class="flex gap-2">
+      <button class="btn2" onclick="toggleTheme()" aria-label="Alternar tema">◐ Tema</button>
+      <button class="btn2" onclick="openCfg()">⚙ Alterar Chave API <span id="keyDot" class="inline-block w-2 h-2 rounded-full ml-1" style="background:#f43f5e"></span></button>
+    </div>
+  </div>
+
+  <!-- Logo + busca -->
+  <header class="text-center pt-8 pb-6">
+    <h1 class="text-4xl sm:text-5xl font-bold tracking-tight">Audit<span style="color:var(--acc)">Quest</span></h1>
+    <p class="mute mt-2">Estude como a FGV cobra: jogue, erre aqui e acerte na prova.</p>
+    <div class="search mt-8"><input id="topic" type="text" placeholder="Ex.: ICMS – Substituição Tributária" autocomplete="off"></div>
+  </header>
+
+  <section id="games" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></section>
+  <div class="text-center mt-6"><button id="go" class="btn" onclick="start()">Gerar jogo</button></div>
+  <main id="stage" class="mt-8" aria-live="polite"></main>
+</div>
+
+<!-- Modal: chave da API -->
+<dialog id="cfg" class="card p-6 w-[92%] max-w-md" style="color:var(--ink)">
+  <h2 class="font-semibold text-lg mb-1">Chave da API Gemini</h2>
+  <p class="mute text-sm">Gere uma chave gratuita em <a class="underline" style="color:var(--acc)" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> e cole abaixo. Chaves que começam com “AIza” ou “AQ.” são aceitas. Ela fica salva só neste navegador.</p>
+  <input id="keyIn" class="f mt-3" type="password" placeholder="Cole sua chave aqui" autocomplete="off" spellcheck="false">
+  <label class="text-sm mute ui mt-2 flex items-center gap-2"><input type="checkbox" onchange="$('keyIn').type=this.checked?'text':'password'"> Mostrar chave</label>
+  <p id="keyMsg" class="text-sm mt-2" style="color:#f43f5e"></p>
+  <div class="flex flex-wrap gap-2 mt-4 justify-end">
+    <button class="btn2" onclick="if(confirm('Zerar pontuação?')){localStorage.removeItem('aq_stats');renderStats()}">Zerar placar</button>
+    <button class="btn2" onclick="removeKey()">Remover chave</button>
+    <button class="btn2" onclick="$('cfg').close()">Cancelar</button>
+    <button class="btn" onclick="saveKey()">Salvar</button>
+  </div>
+</dialog>
+
+<script type="module">
+/* ============================================================
+   AuditQuest — SPA de estudo ativo (FGV · Auditor Fiscal)
+   1) Config  2) Utils/Estado  3) Gemini (SDK oficial)  4) Jogos  5) Init
+   Nenhuma chave no código: ela vem do localStorage (aq_key).
+   ============================================================ */
+
+/* ---------- 1) CONFIG ---------- */
+const getKey = () => (localStorage.getItem('aq_key') || '').trim();
+
+// Instruções fixas anexadas a todo prompt (o payload só aceita "contents/parts")
+const SYSTEM = `Você é um especialista e elaborador de questões para o concurso de Auditor Fiscal da banca FGV.
+Conheça o estilo FGV: troca sutil de termos, exceções omitidas, "sempre/nunca/somente", jurisprudência recente (STF/STJ), literalidade de lei.
+REGRAS DE SAÍDA: responda ESTRITAMENTE com um único objeto JSON válido, sem markdown, sem crases, sem texto antes ou depois, em português do Brasil.
+Fundamente em legislação, súmulas e jurisprudência; NUNCA invente números de artigos, súmulas ou julgados. Se não tiver certeza, cite só o princípio.
+O objeto deve ter: "ponto_mais_cobrado" (string), "pegadinhas" (array com exatamente 3 strings) e "itens" (array no formato do jogo).`;
+
+const GAMES = {
+  trap: { name:'FGV Trap Detector', desc:'Afirmações com pegadinhas: Certo ou Errado + justificativa',
+    fmt:`5 itens: {"afirmacao":string,"gabarito":true ou false,"pegadinha":"qual armadilha FGV foi usada (troca de termo, exceção omitida, jurisprudência recente...)","explicacao":"fundamentação legal/jurisprudencial"}. Misture afirmações certas e erradas.` },
+  blitz: { name:'Quiz Blitz Tax', desc:'Perguntas rápidas pelo peso de incidência do tema',
+    fmt:`6 itens curtos e diretos: {"pergunta":string,"alternativas":[4 strings],"correta":índice 0-3,"explicacao":"explicação fundamentada","peso":"alto, médio ou baixo (peso de incidência de cobrança deste ponto na FGV)"}` },
+  termo: { name:'Termo Invertido', desc:'Veja a definição ou o caso e descubra o termo',
+    fmt:`6 itens: {"definicao":"definição técnica ou caso prático SEM citar o termo","termo":string,"distratores":[3 termos plausíveis e errados],"explicacao":string}` },
+  caso: { name:'Parecer de Caso Prático', desc:'Decida, justifique e a IA avalia seu raciocínio',
+    fmt:`2 itens: {"caso":"mini-caso hipotético de fiscalização (4-6 linhas)","decisoes":[3 strings com condutas possíveis do auditor],"correta":índice 0-2,"explicacao":"decisão correta e fundamentos legais"}` },
+  leg: { name:'Caça-Pegadinhas da Legislação', desc:'Ache a expressão alterada e escolha a correção', 
+    fmt:`5 itens: {"texto":"trecho de legislação tributária (2-4 linhas) com UMA alteração sutil típica da FGV (ex.: isento por imune, prazo de 30 para 15 dias, poderá por deverá)","trechos":[4 expressões curtas copiadas literalmente do texto; uma delas é a alterada],"erro":índice 0-3 do trecho alterado,"justificativas":[4 strings com correção/justificativa],"correta":índice 0-3,"explicacao":"redação original correta e fundamento legal"}` },
+  trib: { name:'Tribunal de Recursos Fiscais', desc:'Seja julgador do Conselho de Contribuintes (STF/STJ)', 
+    fmt:`3 itens: {"caso":"recurso fiscal hipotético em julgamento no Conselho de Contribuintes: resumo da autuação (4-5 linhas)","defesa":"argumentos do contribuinte","decisoes":[3 ou 4 strings curtas, ex.: "Manter o Auto de Infração","Anular por vício formal","Conceder a isenção"],"correta":índice,"fundamentacao":"fundamentação da decisão correta e por que as outras falham","precedentes":[2 a 3 súmulas/julgados STF/STJ reais, só os que você tem certeza]}` },
+  quiz: { name:'Quiz Frequência FGV', desc:'Só o TOP 20% mais cobrado, com relevância', 
+    fmt:`6 itens, TODOS estritamente sobre os pontos do TOP 20% mais cobrados pela FGV neste assunto: {"pergunta":string,"alternativas":[4 strings],"correta":índice 0-3,"explicacao":"gabarito comentado fundamentado","relevancia":inteiro 0-100 (estimativa da incidência do ponto em provas FGV de Auditor Fiscal)}` }
+};
+
+/* ---------- 2) UTILS / ESTADO ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const shuffle = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(p => p[1]);
+let selected = 'trap';
+let S = null; // sessão: {game, topic, data, i, done, hits, pts}
+
+const loadStats = () => { try { return JSON.parse(localStorage.getItem('aq_stats')) || {pts:0, hits:0, total:0}; } catch { return {pts:0, hits:0, total:0}; } };
+function addScore(hit, pts) {
+  const s = loadStats(); s.total++; if (hit) s.hits++; s.pts += pts;
+  localStorage.setItem('aq_stats', JSON.stringify(s)); renderStats();
+}
+function renderStats() {
+  const s = loadStats(), acc = s.total ? Math.round(s.hits / s.total * 100) : 0;
+  $('stats').innerHTML = `<b style="color:var(--acc)">${s.pts}</b> pts · ${s.hits}/${s.total} acertos · ${acc}% de precisão`;
+}
+function toggleTheme() { localStorage.setItem('aq_theme', document.documentElement.classList.toggle('dark') ? 'dark' : 'light'); }
+
+// Gestão da chave (localStorage)
+function updateKeyDot() { $('keyDot').style.background = getKey() ? '#10b981' : '#f43f5e'; }
+function openCfg(msg = '') { $('keyIn').value = getKey(); $('keyMsg').textContent = msg; $('cfg').showModal(); $('keyIn').focus(); }
+function saveKey() {
+  const v = $('keyIn').value.trim();
+  if (v.length < 20 || /\s/.test(v)) { $('keyMsg').textContent = 'Essa chave parece inválida. Confira se copiou inteira, sem espaços.'; return; }
+  localStorage.setItem('aq_key', v); updateKeyDot(); $('cfg').close();
+}
+// Botão "Atualizar chave API" (telas de erro): apaga a chave salva e reabre o modal
+function atualizarChave() { localStorage.removeItem('aq_key'); localStorage.removeItem('aq_model'); updateKeyDot(); openCfg('Cole uma nova chave da API Gemini.'); }
+function removeKey() { localStorage.removeItem('aq_key'); $('keyIn').value = ''; updateKeyDot(); $('keyMsg').textContent = 'Chave removida deste navegador.'; }
+
+/* ---------- 3) GEMINI (SDK oficial @google/generative-ai) ---------- */
+// SDK carregado sob demanda, com CDNs reserva. Um import estático no topo derrubaria a página inteira se o CDN fosse bloqueado.
+let GoogleGenerativeAI;
+async function carregarSdk() {
+  if (GoogleGenerativeAI) return;
+  const cdns = ['https://esm.run/@google/generative-ai', 'https://cdn.jsdelivr.net/npm/@google/generative-ai/+esm', 'https://esm.sh/@google/generative-ai'];
+  for (const url of cdns) {
+    try { ({ GoogleGenerativeAI } = await import(url)); return; } catch (e) { console.error('Falha ao carregar SDK de', url, e); }
+  }
+  throw new Error('SDK_INDISPONIVEL');
+}
+const MODELO_PRINCIPAL = "gemini-2.5-flash"; // os modelos 1.x foram descontinuados e respondem 404
+// Reservas usadas quando o principal responde 404/429/5xx.
+const MODELOS_FALLBACK = ["gemini-3.5-flash", "gemini-2.0-flash"];
+const statusOf = e => e?.status || +(String(e?.message).match(/\[(\d{3})\b/)?.[1]) || 0;
+const lerJson = t => { const a = t.indexOf('{'), b = t.lastIndexOf('}'); return JSON.parse(t.slice(a, b + 1)); }; // tolera cercas de markdown
+
+const LOG = []; // diagnóstico: o que cada tentativa respondeu (mostrado em "Detalhes técnicos" quando dá erro)
+const GEN_CFG = { responseMimeType: "application/json" };
+
+// API Gemini Developer (chaves "AIza...") via SDK oficial
+async function chamarSdk(nomeModelo, promptTexto, apiKey) {
+  if (!GoogleGenerativeAI) throw new Error('SDK_INDISPONIVEL');
+  const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: nomeModelo });
+  const result = await model.generateContent({ contents: [{ role: 'user', parts: [{ text: promptTexto }] }], generationConfig: GEN_CFG });
+  return lerJson(result.response.text());
+}
+
+// Vertex AI (modo express): chaves que começam com "AQ." valem neste endpoint, não no generativelanguage
+async function chamarVertex(nomeModelo, promptTexto, apiKey) {
+  const res = await fetch(`https://aiplatform.googleapis.com/v1/publishers/google/models/${nomeModelo}:generateContent?key=${apiKey}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: promptTexto }] }], generationConfig: GEN_CFG })
+  });
+  if (!res.ok) { const e = new Error(`[${res.status}] ${(await res.text().catch(() => '')).slice(0, 300)}`); e.status = res.status; throw e; }
+  const j = await res.json();
+  return lerJson((j?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join(''));
+}
+
+// Uma chamada a um modelo específico; registra falhas no LOG e memoriza o modelo que funcionou
+async function chamarModelo(nomeModelo, promptTexto, apiKey) {
+  const log = (via, e) => LOG.push(`${via} · ${nomeModelo} → ${String(e?.message || e).slice(0, 400)}`);
+  let dados;
+  if (apiKey.startsWith('AQ.')) { // chave Vertex AI: tenta o endpoint do Vertex e, se falhar, a API Gemini Developer
+    try { dados = await chamarVertex(nomeModelo, promptTexto, apiKey); }
+    catch (e) {
+      log('Vertex AI', e); if (e instanceof SyntaxError) throw e;
+      try { dados = await chamarSdk(nomeModelo, promptTexto, apiKey); } catch (e2) { log('API Gemini', e2); throw e2.message === 'SDK_INDISPONIVEL' ? e : e2; }
+    }
+  } else {
+    try { dados = await chamarSdk(nomeModelo, promptTexto, apiKey); } catch (e) { log('API Gemini', e); throw e; }
+  }
+  localStorage.setItem('aq_model', nomeModelo);
+  return dados;
+}
+
+async function gerarConteudoJogo(promptTexto, apiKey) {
+  const inicial = localStorage.getItem('aq_model') || MODELO_PRINCIPAL;
+  try {
+    return await chamarModelo(inicial, promptTexto, apiKey);
+  } catch (error) {
+    console.error("Erro na API Gemini:", error);
+    // 404 (modelo indisponível), 429 (cota por modelo) ou 5xx: tenta os outros modelos
+    if (/404/.test(error.message || '') || [404, 429, 500, 503].includes(statusOf(error))) return tentarFallback(promptTexto, apiKey, inicial);
+    throw error;
+  }
+}
+
+async function tentarFallback(promptTexto, apiKey, jaFalhou) {
+  let ultimo;
+  for (const m of [MODELO_PRINCIPAL, ...MODELOS_FALLBACK].filter(x => x !== jaFalhou)) {
+    try { return await chamarModelo(m, promptTexto, apiKey); }
+    catch (e) { ultimo = e; console.error(`Fallback ${m} falhou:`, e); if (![404, 429, 500, 503].includes(statusOf(e))) break; }
+  }
+  throw ultimo;
+}
+
+// Camada usada pelos jogos: lê a chave e converte qualquer erro em mensagem amigável
+async function gemini(prompt) {
+  const apiKey = getKey(); LOG.length = 0;
+  if (!apiKey) { const e = new Error('Nenhuma chave de API configurada.'); e.key = true; throw e; }
+  try { await carregarSdk(); }
+  catch { if (!apiKey.startsWith('AQ.')) throw new Error('Não foi possível carregar o SDK do Gemini. Verifique sua internet, desative bloqueadores de conteúdo e recarregue a página.'); }
+  try { return await gerarConteudoJogo(prompt, apiKey); }
+  catch (err) {
+    const st = statusOf(err), msg = String(err.message || ''), e = new Error(); e.key = true;
+    if (err instanceof SyntaxError) { e.key = false; e.message = 'A IA devolveu um formato inesperado. Clique em "Gerar jogo" para tentar outra vez.'; }
+    else if (st === 429) e.message = 'Cota da API excedida (erro 429). Aguarde alguns minutos ou use uma chave com cota disponível.';
+    else if (st === 400 || /API key not valid/i.test(msg)) e.message = 'Chave de API inválida ou requisição recusada (erro 400). Confira a chave ou gere uma nova.';
+    else if (st === 401 || st === 403) e.message = `A chave foi recusada (erro ${st}). Verifique se está correta e ativa.`;
+    else if (st === 404 || /404/.test(msg)) e.message = 'Nenhum modelo Gemini foi encontrado para esta chave (erro 404). Gere uma chave que comece com "AIza" em aistudio.google.com/apikey (chaves "AQ." são do Vertex AI).';
+    else if (/SAFETY|blocked/i.test(msg)) { e.key = false; e.message = 'A resposta foi bloqueada pelos filtros de segurança. Tente reformular o assunto.'; }
+    else if (!st && /fetch|network/i.test(msg)) { e.key = false; e.message = 'Sem conexão com a API. Verifique sua internet e tente de novo.'; }
+    else { e.key = false; e.message = `A API retornou um erro${st ? ' ' + st : ''}. Tente novamente em instantes.`; }
+    e.detalhes = LOG.join('\n'); // só para exibir no painel de detalhes técnicos
+    throw e;
+  }
+}
+
+/* ---------- 4) FLUXO DO JOGO ---------- */
+async function start() {
+  const topic = $('topic').value.trim();
+  if (!topic) { $('topic').focus(); return; }
+  if (!getKey()) { alert('Para gerar jogos você precisa informar sua chave da API do Gemini. Vou abrir as configurações.'); openCfg('Cole sua chave para começar.'); return; }
+  const g = GAMES[selected];
+  $('go').disabled = true;
+  $('stage').innerHTML = `<div class="card p-10 text-center"><div class="spin"></div><p class="mute mt-4 ui text-sm">Elaborando questões sobre “${esc(topic)}”…</p></div>`;
+  try {
+    const data = await gemini(`${SYSTEM}\n\nAssunto: "${topic}".\nJogo: ${g.name}.\nGere o JSON com "ponto_mais_cobrado", "pegadinhas" (3) e "itens" neste formato: ${g.fmt}`);
+    if (!Array.isArray(data.itens) || !data.itens.length) throw new Error('A IA não gerou itens válidos. Tente outro assunto ou gere de novo.');
+    S = { game: selected, topic, data, i: -1, done: false, hits: 0, pts: 0 };
+    renderIntro();
+  } catch (e) {
+    $('stage').innerHTML = `<div class="card p-6 text-center" style="border-color:#f43f5e"><p class="font-semibold ui">Não foi possível gerar o jogo</p><p class="mute mt-1">${esc(e.message)}</p>${e.key ? `<button class="btn mt-4" onclick="atualizarChave()">Atualizar chave API</button>` : ''}${e.detalhes ? `<details class="mt-4 text-left text-xs mute"><summary class="cursor-pointer ui">Detalhes técnicos</summary><pre class="whitespace-pre-wrap break-words mt-2">${esc(e.detalhes)}</pre></details>` : ''}</div>`;
+  } finally { $('go').disabled = false; }
+}
+
+// Radar da banca: ponto mais cobrado + 3 pegadinhas
+function renderIntro() {
+  const d = S.data;
+  $('stage').innerHTML = `<div class="card p-6"><h2 class="font-semibold ui text-lg">Radar da banca · ${esc(S.topic)}</h2>
+    <p class="mt-3"><b>Ponto mais cobrado:</b> ${esc(d.ponto_mais_cobrado)}</p>
+    <p class="mt-4 font-semibold ui text-sm">Pegadinhas FGV neste tema</p>
+    <ul class="list-disc pl-5 mt-1 space-y-1">${(d.pegadinhas || []).map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+    <button class="btn mt-6" onclick="next()">Começar</button></div>`;
+}
+function next() { S.i++; S.i >= S.data.itens.length ? renderEnd() : renderItem(); }
+
+function frame(inner) {
+  const n = S.data.itens.length;
+  $('stage').innerHTML = `<div class="card p-6">
+    <div class="flex justify-between text-sm mute ui"><span>${GAMES[S.game].name}</span><span>${S.i + 1}/${n}</span></div>
+    <div class="h-1 rounded mt-2" style="background:var(--line)"><div class="h-1 rounded" style="background:var(--acc);width:${(S.i / n) * 100}%"></div></div>
+    <div class="mt-5">${inner}</div><div id="fb" class="mt-4"></div></div>`;
+}
+
+function renderItem() {
+  const it = S.data.itens[S.i]; S.done = false;
+  if (S.game === 'trap') {
+    frame(`<p class="text-lg leading-relaxed">${esc(it.afirmacao)}</p>
+      <div class="grid grid-cols-2 gap-3 mt-5"><button class="opt text-center ui font-semibold" onclick="answerTrap(true)">Certo</button>
+      <button class="opt text-center ui font-semibold" onclick="answerTrap(false)">Errado</button></div>
+      <textarea id="just" rows="2" class="mt-3" placeholder="Justifique (opcional): onde está a pegadinha?"></textarea>`);
+  } else if (S.game === 'termo') {
+    it._o = shuffle([it.termo, ...(it.distratores || [])]);
+    frame(`<p class="mute ui text-sm">Qual é o conceito?</p><p class="text-lg leading-relaxed mt-1">${esc(it.definicao)}</p>` +
+      it._o.map((t, k) => `<button class="opt" onclick="answerTermo(${k})">${esc(t)}</button>`).join(''));
+  } else if (S.game === 'caso') {
+    it._k = undefined;
+    frame(`<p class="text-lg leading-relaxed">${esc(it.caso)}</p><p class="font-semibold ui text-sm mt-4">Sua decisão</p>` +
+      it.decisoes.map((t, k) => `<button class="opt gc" onclick="pickCase(${k})">${esc(t)}</button>`).join('') +
+      `<textarea id="parecer" rows="4" class="mt-3" placeholder="Escreva seu parecer: fundamentos legais e raciocínio…"></textarea>
+       <button class="btn mt-3" onclick="submitCase()">Enviar parecer</button>`);
+  } else if (S.game === 'leg') {
+    // Etapa 1: achar a expressão alterada. Etapa 2 (após a 1): escolher a justificativa correta.
+    it._p = undefined;
+    frame(`<p class="mute ui text-sm">Há uma alteração sutil neste trecho. Qual expressão está errada?</p>
+      <div class="law mt-2">${esc(it.texto)}</div>` +
+      it.trechos.map((t, k) => `<button class="opt g1" onclick="legPick(${k})">${esc(t)}</button>`).join('') + `<div id="step2"></div>`);
+  } else if (S.game === 'trib') {
+    frame(`<p class="leading-relaxed">${esc(it.caso)}</p>
+      <p class="font-semibold ui text-sm mt-4">Defesa do contribuinte</p><div class="law mt-1">${esc(it.defesa)}</div>
+      <p class="font-semibold ui text-sm mt-4">Sua decisão como julgador</p>` +
+      it.decisoes.map((t, k) => `<button class="opt" onclick="answer(${k})">${esc(t)}</button>`).join(''));
+  } else {
+    it._o = shuffle(it.alternativas.map((t, i) => ({ t, i })));
+    frame(`<p class="text-lg leading-relaxed">${esc(it.pergunta)}</p>` +
+      it._o.map(o => `<button class="opt" data-i="${o.i}" onclick="answer(${o.i})">${esc(o.t)}</button>`).join(''));
+  }
+}
+
+// Caça-Pegadinhas — etapa 1
+function legPick(k) {
+  const it = S.data.itens[S.i]; if (it._p !== undefined) return; it._p = k;
+  document.querySelectorAll('.g1').forEach((b, i) => { b.disabled = true; if (i === it.erro) b.classList.add('ok'); else if (i === k) b.classList.add('bad'); });
+  it._j = shuffle(it.justificativas.map((t, i) => ({ t, i })));
+  $('step2').innerHTML = `<p class="font-semibold ui text-sm mt-5">Qual a correção/justificativa segundo a banca?</p>` +
+    it._j.map(o => `<button class="opt g2" data-i="${o.i}" onclick="legJust(${o.i})">${esc(o.t)}</button>`).join('');
+}
+// Caça-Pegadinhas — etapa 2 (correção final)
+function legJust(v) {
+  if (S.done) return; S.done = true;
+  const it = S.data.itens[S.i], okE = it._p === it.erro, okJ = v === it.correta;
+  document.querySelectorAll('.g2').forEach(b => { b.disabled = true; const i = +b.dataset.i; if (i === it.correta) b.classList.add('ok'); else if (i === v) b.classList.add('bad'); });
+  const pts = (okE ? 5 : 0) + (okJ ? 10 : 0), hit = okE && okJ;
+  finish(hit, pts, `<p>${esc(it.explicacao)}</p><p class="mt-2 mute text-sm">Expressão: ${okE ? 'acertou' : 'errou'} (+5) · Justificativa: ${okJ ? 'acertou' : 'errou'} (+10)</p>`);
+}
+
+// FGV Trap Detector: Certo/Errado + justificativa
+function answerTrap(v) {
+  if (S.done) return; S.done = true;
+  const it = S.data.itens[S.i], hit = v === it.gabarito, j = ($('just') || {}).value || '';
+  const b = [...document.querySelectorAll('.opt')]; b.forEach(x => x.disabled = true);
+  b[v ? 0 : 1].classList.add(hit ? 'ok' : 'bad'); if (!hit) b[it.gabarito ? 0 : 1].classList.add('ok');
+  finish(hit, hit ? 10 : 0, `<p>Gabarito: <b>${it.gabarito ? 'Certo' : 'Errado'}</b>. ${esc(it.explicacao)}</p><p class="mt-2"><b>Pegadinha:</b> ${esc(it.pegadinha)}</p>` +
+    (j.trim() ? `<p class="mt-2 mute text-sm">Sua justificativa: ${esc(j)}</p>` : ''));
+}
+
+// Termo Invertido
+function answerTermo(k) {
+  if (S.done) return; S.done = true;
+  const it = S.data.itens[S.i], hit = it._o[k] === it.termo;
+  document.querySelectorAll('.opt').forEach((b, i) => { b.disabled = true; if (it._o[i] === it.termo) b.classList.add('ok'); else if (i === k) b.classList.add('bad'); });
+  finish(hit, hit ? 10 : 0, `<p>Termo: <b>${esc(it.termo)}</b>.</p><p class="mt-1">${esc(it.explicacao)}</p>`);
+}
+
+// Parecer de Caso Prático: decisão + parecer avaliado pela IA (segunda chamada ao Gemini)
+function pickCase(k) {
+  const it = S.data.itens[S.i]; if (S.done) return; it._k = k;
+  document.querySelectorAll('.gc').forEach((b, i) => b.classList.toggle('ok', i === k));
+}
+async function submitCase() {
+  if (S.done) return;
+  const it = S.data.itens[S.i];
+  if (it._k === undefined) { $('fb').innerHTML = `<p class="mute ui text-sm">Escolha uma decisão antes de enviar.</p>`; return; }
+  S.done = true;
+  const parecer = $('parecer').value.trim(), ctl = '#stage .opt, #stage .btn';
+  document.querySelectorAll(ctl).forEach(b => b.disabled = true);
+  $('fb').innerHTML = `<div class="spin"></div><p class="mute text-center text-sm mt-2">A IA está avaliando seu raciocínio…</p>`;
+  let nota, fbk;
+  try {
+    const r = await gemini(`Você é examinador de Auditor Fiscal da FGV. Responda ESTRITAMENTE com um único objeto JSON válido, sem markdown: {"nota":número de 0 a 10,"feedback":"acertos, lacunas e fundamentos que faltaram"}.\nCaso: ${it.caso}\nDecisão correta: ${it.decisoes[it.correta]}\nExplicação oficial: ${it.explicacao}\nDecisão do candidato: ${it.decisoes[it._k]}\nParecer do candidato: ${parecer || '(não escreveu)'}`);
+    nota = Math.max(0, Math.min(10, +r.nota || 0)); fbk = r.feedback || '';
+  } catch (e) {
+    if (e.key) { // chave/cota: deixa o usuário corrigir e reenviar
+      S.done = false; document.querySelectorAll(ctl).forEach(b => b.disabled = false);
+      $('fb').innerHTML = `<p style="color:#f43f5e">${esc(e.message)}</p><button class="btn mt-3" onclick="atualizarChave()">Atualizar chave API</button>`; return;
+    }
+    nota = it._k === it.correta ? 6 : 2; fbk = 'Avaliação da IA indisponível agora; nota baseada apenas na decisão.';
+  }
+  document.querySelectorAll('.gc').forEach((b, i) => { b.classList.remove('ok'); if (i === it.correta) b.classList.add('ok'); else if (i === it._k) b.classList.add('bad'); });
+  finish(nota >= 6, nota * 2, `<p><b>Nota da IA: ${nota}/10.</b> ${esc(fbk)}</p><p class="mt-2"><b>Gabarito:</b> ${esc(it.explicacao)}</p>`);
+}
+
+// Tribunal, Quiz Blitz e Quiz Frequência
+function answer(v) {
+  if (S.done) return; S.done = true;
+  const it = S.data.itens[S.i], btns = [...document.querySelectorAll('.opt')], hit = v === it.correta;
+  btns.forEach((b, k) => { b.disabled = true; const idx = b.dataset.i !== undefined ? +b.dataset.i : k; if (idx === it.correta) b.classList.add('ok'); else if (idx === v) b.classList.add('bad'); });
+  let html;
+  if (S.game === 'trib') {
+    html = `<p>${esc(it.fundamentacao)}</p>` + ((it.precedentes || []).length ? `<p class="font-semibold ui text-sm mt-3">Súmulas e jurisprudência</p><ul class="list-disc pl-5">${it.precedentes.map(p => `<li>${esc(p)}</li>`).join('')}</ul>` : '');
+  } else if (S.game === 'blitz') {
+    html = `<p>${esc(it.explicacao)}</p><p class="ui text-sm mt-3">Peso de incidência na FGV: <b>${esc(it.peso || 'n/d')}</b></p>`;
+  } else {
+    const r = Math.max(0, Math.min(100, +it.relevancia || 0));
+    html = `<p>${esc(it.explicacao)}</p><p class="ui text-sm mt-3">Relevância estimada na FGV: <b>${r}%</b></p>
+      <div class="h-2 rounded mt-1" style="background:var(--line)"><div class="h-2 rounded" style="background:var(--acc2);width:${r}%"></div></div>`;
+  }
+  finish(hit, hit ? (S.game === 'trib' ? 15 : 10) : 0, html);
+}
+
+function finish(hit, pts, html) {
+  S.hits += hit ? 1 : 0; S.pts += pts; addScore(hit, pts);
+  const last = S.i + 1 >= S.data.itens.length;
+  $('fb').innerHTML = `<div class="rounded-xl p-4" style="background:${hit ? 'rgba(16,185,129,.12)' : 'rgba(244,63,94,.1)'}">
+    <p class="font-semibold ui">${hit ? 'Correto' : 'Não foi dessa vez'} · +${pts} pts</p><div class="mt-2 leading-relaxed">${html}</div>
+    <button class="btn mt-4" onclick="next()">${last ? 'Ver resultado' : 'Próxima'}</button></div>`;
+}
+
+function renderEnd() {
+  $('stage').innerHTML = `<div class="card p-8 text-center"><h2 class="text-2xl font-bold ui">${S.hits}/${S.data.itens.length} acertos</h2>
+    <p class="mute mt-1">+${S.pts} pontos nesta rodada · tema: ${esc(S.topic)}</p>
+    <div class="flex flex-wrap gap-3 justify-center mt-6">
+      <button class="btn" onclick="start()">Nova rodada do mesmo tema</button>
+      <button class="btn2" onclick="$('topic').focus();window.scrollTo({top:0,behavior:'smooth'})">Mudar tema</button></div></div>`;
+}
+
+/* ---------- 5) INICIALIZAÇÃO ---------- */
+function selectGame(k) { selected = k; renderGames(); }
+function renderGames() {
+  $('games').innerHTML = Object.entries(GAMES).map(([k, g]) =>
+    `<button class="chip ${k === selected ? 'on' : ''}" onclick="selectGame('${k}')"><span class="font-semibold ui">${g.name}</span><br><span class="mute text-sm">${g.desc}</span></button>`).join('');
+}
+if (localStorage.getItem('aq_theme') === 'dark' || (!localStorage.getItem('aq_theme') && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+$('topic').addEventListener('keydown', e => { if (e.key === 'Enter') start(); });
+// Expõe ao escopo global as funções usadas em onclick="..." (módulos ES não vazam para window)
+Object.assign(window, { $, toggleTheme, openCfg, atualizarChave, saveKey, removeKey, start, next, legPick, legJust, answer, answerTrap, answerTermo, pickCase, submitCase, renderStats, selectGame });
+renderGames(); renderStats(); updateKeyDot();
+if (!getKey()) setTimeout(() => openCfg('Informe sua chave da API Gemini para jogar.'), 400); // primeira visita
+</script>
+</body>
+</html>
