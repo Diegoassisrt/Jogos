@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AuditQuest · Estudo ativo para Auditor Fiscal (FGV)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // Tailwind: dark mode controlado por classe
+  tailwind.config = { darkMode: 'class' };
+</script>
+<style>
+  :root { --bg:#f6f8fb; --card:#ffffff; --ink:#0f172a; --mute:#64748b; --line:#e2e8f0; --acc:#0d9488; --acc2:#6366f1; }
+  .dark { --bg:#0b1020; --card:#131a2e; --ink:#e8edf8; --mute:#94a3b8; --line:#243049; --acc:#2dd4bf; --acc2:#818cf8; }
+  body { background:var(--bg); color:var(--ink); font-family:'Source Serif 4',Georgia,serif; transition:background .3s; }
+  h1,h2,h3,.ui { font-family:'Sora',system-ui,sans-serif; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:18px; }
+  .mute { color:var(--mute); }
+  /* Barra de busca com glow: borda em gradiente + halo suave */
+  .search { position:relative; border-radius:999px; padding:2px; background:linear-gradient(120deg,var(--acc),var(--acc2),var(--acc));
+            background-size:200% 200%; box-shadow:0 0 28px -6px var(--acc); animation:flow 8s linear infinite; }
+  @keyframes flow { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }
+  .search input { width:100%; background:var(--card); color:var(--ink); border-radius:999px; padding:1rem 1.5rem; outline:none; font-size:1.05rem; font-family:'Sora',sans-serif; }
+  .chip { border:1px solid var(--line); background:var(--card); border-radius:14px; padding:.75rem 1rem; text-align:left; cursor:pointer; transition:.15s; }
+  .chip:hover { border-color:var(--acc); }
+  .chip.on { border-color:var(--acc); box-shadow:0 0 0 2px var(--acc) inset; }
+  .btn { background:var(--acc); color:#04201d; font-family:'Sora',sans-serif; font-weight:600; border-radius:999px; padding:.7rem 1.6rem; transition:.15s; }
+  .btn:hover { filter:brightness(1.1); } .btn:disabled { opacity:.5; cursor:wait; }
+  .btn2 { border:1px solid var(--line); border-radius:999px; padding:.5rem 1rem; font-family:'Sora',sans-serif; font-size:.85rem; }
+  .opt { display:block; width:100%; text-align:left; border:1px solid var(--line); border-radius:12px; padding:.8rem 1rem; margin-top:.5rem; background:var(--card); transition:.15s; }
+  .opt:hover:not(:disabled) { border-color:var(--acc); }
+  .opt.ok { background:rgba(16,185,129,.18); border-color:#10b981; }
+  .opt.bad { background:rgba(244,63,94,.16); border-color:#f43f5e; }
+  textarea,input.f { width:100%; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:.7rem 1rem; color:var(--ink); outline:none; }
+  .spin { width:34px; height:34px; border:3px solid var(--line); border-top-color:var(--acc); border-radius:50%; animation:sp 1s linear infinite; margin:auto; }
+  @keyframes sp { to { transform:rotate(360deg) } }
+  @media (prefers-reduced-motion:reduce){ .search,.spin{animation:none} }
+</style>
+</head>
+<body class="min-h-screen">
+<div class="max-w-3xl mx-auto px-4 pb-16">
+
+  <!-- Topo: estatísticas + configurações + tema -->
+  <div class="flex items-center justify-between py-4 text-sm ui">
+    <div id="stats" class="mute"></div>
+    <div class="flex gap-2">
+      <button class="btn2" onclick="toggleTheme()" aria-label="Alternar tema">◐ Tema</button>
+      <button id="keyBtn" class="btn2" onclick="openCfg()" aria-label="Configurar chave da API">⚙ Chave API <span id="keyDot" class="inline-block w-2 h-2 rounded-full ml-1" style="background:#f43f5e"></span></button>
+    </div>
+  </div>
+
+  <!-- Boas-vindas + busca -->
+  <header class="text-center pt-8 pb-6">
+    <h1 class="text-4xl sm:text-5xl font-bold tracking-tight">Audit<span style="color:var(--acc)">Quest</span></h1>
+    <p class="mute mt-2">Estude como a FGV cobra: jogue, erre aqui e acerte na prova.</p>
+    <div class="search mt-8"><input id="topic" type="text" placeholder="Ex.: ICMS – Substituição Tributária" autocomplete="off"></div>
+  </header>
+
+  <!-- Seleção do jogo -->
+  <section id="games" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></section>
+  <div class="text-center mt-6"><button id="go" class="btn" onclick="start()">Gerar jogo</button></div>
+
+  <!-- Palco onde o jogo é renderizado -->
+  <main id="stage" class="mt-8" aria-live="polite"></main>
+</div>
+
+<!-- Modal de configurações -->
+<dialog id="cfg" class="card p-6 w-[92%] max-w-md" style="color:var(--ink)">
+  <h2 class="font-semibold text-lg mb-1">Chave da API Gemini</h2>
+  <p class="mute text-sm">Gere uma chave gratuita em <a class="underline" style="color:var(--acc)" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> e cole abaixo. Ela fica salva só neste navegador.</p>
+  <input id="keyIn" class="f mt-3" type="password" placeholder="Cole sua chave aqui" autocomplete="off" spellcheck="false">
+  <label class="text-sm mute ui mt-2 flex items-center gap-2"><input type="checkbox" onchange="$('keyIn').type=this.checked?'text':'password'"> Mostrar chave</label>
+  <p id="keyMsg" class="text-sm mt-2" style="color:#f43f5e"></p>
+  <div class="flex flex-wrap gap-2 mt-4 justify-end">
+    <button class="btn2" onclick="if(confirm('Zerar pontuação?')){localStorage.removeItem('aq_stats');renderStats()}">Zerar placar</button>
+    <button class="btn2" onclick="removeKey()">Remover chave</button>
+    <button class="btn2" onclick="$('cfg').close()">Cancelar</button>
+    <button class="btn" onclick="saveKey()">Salvar</button>
+  </div>
+</dialog>
+
+<script>
+/* ============================================================
+   AuditQuest — SPA de estudo ativo (FGV · Auditor Fiscal)
+   Estrutura: 1) Config  2) Utils/Estado  3) Gemini  4) Jogos  5) UI
+   ============================================================ */
+
+/* ---------- 1) CONFIG ---------- */
+// SEGURANÇA: nenhuma chave fica no código. Cada usuário informa a própria chave em "Chave API";
+// ela é guardada apenas no localStorage do navegador dele.
+// Ordem de tentativa: se um modelo responder 404/503, o app tenta o próximo.
+const MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+const apiUrl = (m, k) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${k}`;
+const getKey = () => (localStorage.getItem('aq_key') || '').trim();
+
+const SYSTEM = `Você é um especialista e elaborador de questões para o concurso de Auditor Fiscal da banca FGV.
+Conheça o estilo FGV: troca sutil de termos, exceções omitidas, "sempre/nunca/somente", jurisprudência recente (STF/STJ), literalidade de lei.
+Responda ESTRITAMENTE com JSON válido, sem markdown, sem texto fora do JSON, em português do Brasil.
+Fundamente explicações em legislação (artigos, leis, CF/88, CTN, LC) e jurisprudência; não invente números de artigos ou súmulas que você não tenha certeza.
+Todo JSON deve ter: "ponto_mais_cobrado" (string), "pegadinhas" (array com exatamente 3 strings) e "itens" (array conforme o jogo).`;
+
+// Definição de cada jogo: nome, descrição e o formato de "itens" exigido da IA
+const GAMES = {
+  trap: { name:'FGV Trap Detector', desc:'Caça-pegadinhas: Certo ou Errado + justificativa', pts:10,
+    fmt:'5 itens: {"afirmacao":string,"gabarito":true|false,"pegadinha":string (qual armadilha FGV foi usada),"explicacao":string}. Misture certas e erradas.' },
+  quiz: { name:'Quiz Blitz Tax', desc:'Múltipla escolha focada no que mais cai', pts:10,
+    fmt:'6 itens: {"pergunta":string,"alternativas":[4 strings],"correta":índice 0-3,"explicacao":string}. Priorize os pontos de maior incidência.' },
+  termo: { name:'Termo Invertido', desc:'Veja a definição ou caso e descubra o termo', pts:10,
+    fmt:'6 itens: {"definicao":string (definição técnica ou caso prático, sem citar o termo),"termo":string,"distratores":[3 termos plausíveis e errados],"explicacao":string}.' },
+  caso: { name:'Parecer de Caso Prático', desc:'Decida, justifique e receba a avaliação da IA', pts:20,
+    fmt:'2 itens: {"caso":string (mini-caso de fiscalização, 4-6 linhas),"decisoes":[3 strings],"correta":índice 0-2,"explicacao":string}.' }
+};
+
+/* ---------- 2) UTILS / ESTADO ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const shuffle = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(p => p[1]);
+let selected = 'trap';
+let S = null; // sessão: {game, topic, data, i, done, hits, pts}
+
+const loadStats = () => { try { return JSON.parse(localStorage.getItem('aq_stats')) || {pts:0, hits:0, total:0}; } catch { return {pts:0, hits:0, total:0}; } };
+function addScore(hit, pts) {
+  const s = loadStats(); s.total++; if (hit) s.hits++; s.pts += pts;
+  localStorage.setItem('aq_stats', JSON.stringify(s)); renderStats();
+}
+function renderStats() {
+  const s = loadStats(), acc = s.total ? Math.round(s.hits / s.total * 100) : 0;
+  $('stats').innerHTML = `<b style="color:var(--acc)">${s.pts}</b> pts · ${s.hits}/${s.total} acertos · ${acc}% de precisão`;
+}
+function toggleTheme() {
+  const d = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('aq_theme', d ? 'dark' : 'light');
+}
+// Gestão da chave (localStorage)
+function updateKeyDot() { $('keyDot').style.background = getKey() ? '#10b981' : '#f43f5e'; }
+function openCfg(msg = '') { $('keyIn').value = getKey(); $('keyMsg').textContent = msg; $('cfg').showModal(); $('keyIn').focus(); }
+function saveKey() {
+  const v = $('keyIn').value.trim();
+  if (v.length < 20 || /\s/.test(v)) { $('keyMsg').textContent = 'Essa chave parece inválida. Confira se copiou inteira, sem espaços.'; return; }
+  localStorage.setItem('aq_key', v); updateKeyDot(); $('cfg').close();
+}
+function removeKey() { localStorage.removeItem('aq_key'); $('keyIn').value = ''; updateKeyDot(); $('keyMsg').textContent = 'Chave removida deste navegador.'; }
+
+/* ---------- 3) INTEGRAÇÃO GEMINI ---------- */
+async function gemini(userPrompt, system = SYSTEM) {
+  if (!getKey()) { const e = new Error('Nenhuma chave de API configurada.'); e.key = true; throw e; }
+  const apiKey = getKey();
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role:'user', parts: [{ text: userPrompt }] }],
+    generationConfig: { responseMimeType:'application/json', temperature:0.8 }
+  });
+  // Tenta primeiro o último modelo que funcionou; em 404/503 cai para o próximo da lista.
+  const order = [localStorage.getItem('aq_model'), ...MODELS].filter((m, k, arr) => m && arr.indexOf(m) === k);
+  let res;
+  for (const m of order) {
+    try { res = await fetch(apiUrl(m, apiKey), { method:'POST', headers:{'Content-Type':'application/json'}, body }); }
+    catch { throw new Error('Sem conexão com a API. Verifique sua internet e tente de novo.'); }
+    if (res.ok) { localStorage.setItem('aq_model', m); break; }
+    if (res.status !== 404 && res.status !== 503) break; // outros erros não se resolvem trocando de modelo
+  }
+  if (!res.ok) {
+    let e;
+    if (res.status === 429) { e = new Error('Cota da API excedida (erro 429). Aguarde alguns minutos ou atualize para uma chave com cota disponível.'); e.key = true; }
+    else if ([400, 401, 403].includes(res.status)) { e = new Error(`A chave da API foi recusada (erro ${res.status}). Verifique se ela está correta e ativa, ou gere uma nova.`); e.key = true; }
+    else if (res.status === 404) { e = new Error('Nenhum modelo Gemini Flash (2.5, 2.0 e 1.5) está disponível para esta chave (erro 404). Gere uma nova chave em aistudio.google.com/apikey e confirme que a Generative Language API está ativa no projeto.'); e.key = true; }
+    else if (res.status === 503) e = new Error('Os servidores do Gemini estão sobrecarregados (erro 503). Tente de novo em instantes.');
+    else e = new Error(`A API retornou erro ${res.status}. Tente novamente em instantes.`);
+    throw e;
+  }
+  const j = await res.json();
+  const txt = j?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+  try { return JSON.parse(txt.replace(/```json|```/g, '').trim()); }
+  catch { throw new Error('A IA devolveu um formato inesperado. Clique em "Gerar jogo" para tentar outra vez.'); }
+}
+
+/* ---------- 4) FLUXO DO JOGO ---------- */
+async function start() {
+  const topic = $('topic').value.trim();
+  if (!topic) { $('topic').focus(); return; }
+  if (!getKey()) { // sem chave: avisa e abre o modal automaticamente
+    alert('Para gerar jogos você precisa informar sua chave da API do Gemini. Vou abrir as configurações para você colá-la.');
+    openCfg('Cole sua chave para começar.'); return;
+  }
+  const g = GAMES[selected];
+  $('go').disabled = true;
+  $('stage').innerHTML = `<div class="card p-10 text-center"><div class="spin"></div><p class="mute mt-4 ui text-sm">Elaborando questões sobre “${esc(topic)}”…</p></div>`;
+  try {
+    const data = await gemini(`Assunto: "${topic}".\nJogo: ${g.name}.\nGere o JSON com "ponto_mais_cobrado", "pegadinhas" (3) e "itens" no formato: ${g.fmt}`);
+    if (!Array.isArray(data.itens) || !data.itens.length) throw new Error('A IA não gerou itens válidos. Tente outro assunto ou gere de novo.');
+    S = { game: selected, topic, data, i: -1, done: false, hits: 0, pts: 0 };
+    renderIntro();
+  } catch (e) {
+    $('stage').innerHTML = `<div class="card p-6 text-center" style="border-color:#f43f5e"><p class="font-semibold ui">Não foi possível gerar o jogo</p><p class="mute mt-1">${esc(e.message)}</p>${e.key ? `<button class="btn mt-4" onclick="openCfg()">Atualizar chave API</button>` : ''}</div>`;
+  } finally { $('go').disabled = false; }
+}
+
+// Tela inicial da rodada: ponto mais cobrado + 3 pegadinhas
+function renderIntro() {
+  const d = S.data;
+  $('stage').innerHTML = `<div class="card p-6">
+    <h2 class="font-semibold ui text-lg">Radar da banca · ${esc(S.topic)}</h2>
+    <p class="mt-3"><b>Ponto mais cobrado:</b> ${esc(d.ponto_mais_cobrado)}</p>
+    <p class="mt-4 font-semibold ui text-sm">Pegadinhas FGV neste tema</p>
+    <ul class="list-disc pl-5 mt-1 space-y-1">${(d.pegadinhas || []).map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+    <button class="btn mt-6" onclick="next()">Começar</button></div>`;
+}
+
+function next() { S.i++; S.i >= S.data.itens.length ? renderEnd() : renderItem(); }
+
+// Moldura comum: progresso + conteúdo do jogo + área de feedback
+function frame(inner) {
+  const n = S.data.itens.length;
+  $('stage').innerHTML = `<div class="card p-6">
+    <div class="flex justify-between text-sm mute ui"><span>${GAMES[S.game].name}</span><span>${S.i + 1}/${n}</span></div>
+    <div class="h-1 rounded mt-2" style="background:var(--line)"><div class="h-1 rounded" style="background:var(--acc);width:${(S.i / n) * 100}%"></div></div>
+    <div class="mt-5">${inner}</div><div id="fb" class="mt-4"></div></div>`;
+}
+
+function renderItem() {
+  const it = S.data.itens[S.i]; S.done = false;
+  if (S.game === 'trap') {
+    frame(`<p class="text-lg leading-relaxed">${esc(it.afirmacao)}</p>
+      <div class="grid grid-cols-2 gap-3 mt-5">
+        <button class="opt text-center ui font-semibold" onclick="answer(true)">Certo</button>
+        <button class="opt text-center ui font-semibold" onclick="answer(false)">Errado</button></div>
+      <textarea id="just" rows="2" class="mt-3" placeholder="Justifique (opcional): onde está a pegadinha?"></textarea>`);
+  } else if (S.game === 'quiz') {
+    it._o = shuffle(it.alternativas.map((t, i) => ({ t, i })));
+    frame(`<p class="text-lg leading-relaxed">${esc(it.pergunta)}</p>` +
+      it._o.map((o, k) => `<button class="opt" data-k="${k}" onclick="answer(${o.i})">${esc(o.t)}</button>`).join(''));
+  } else if (S.game === 'termo') {
+    it._o = shuffle([it.termo, ...(it.distratores || [])]);
+    frame(`<p class="mute ui text-sm">Qual é o conceito?</p><p class="text-lg leading-relaxed mt-1">${esc(it.definicao)}</p>` +
+      it._o.map((t, k) => `<button class="opt" data-k="${k}" onclick="answer('${k}')">${esc(t)}</button>`).join(''));
+  } else {
+    frame(`<p class="text-lg leading-relaxed">${esc(it.caso)}</p><p class="font-semibold ui text-sm mt-4">Sua decisão</p>` +
+      it.decisoes.map((t, k) => `<button class="opt" data-k="${k}" onclick="pick(${k})">${esc(t)}</button>`).join('') +
+      `<textarea id="parecer" rows="4" class="mt-3" placeholder="Escreva seu parecer: fundamentos legais e raciocínio…"></textarea>
+       <button class="btn mt-3" onclick="submitCase()">Enviar parecer</button>`);
+  }
+}
+
+// Correção instantânea (trap, quiz, termo)
+function answer(v) {
+  if (S.done) return; S.done = true;
+  const it = S.data.itens[S.i], g = S.game; let hit, extra = '';
+  const btns = [...document.querySelectorAll('.opt')];
+  btns.forEach(b => b.disabled = true);
+  if (g === 'trap') {
+    hit = v === it.gabarito;
+    btns[v ? 0 : 1].classList.add(hit ? 'ok' : 'bad'); if (!hit) btns[it.gabarito ? 0 : 1].classList.add('ok');
+    extra = `<p class="mt-2"><b>Pegadinha:</b> ${esc(it.pegadinha)}</p>`;
+  } else if (g === 'quiz') {
+    hit = v === it.correta;
+    btns.forEach(b => { const o = it._o[b.dataset.k]; if (o.i === it.correta) b.classList.add('ok'); else if (o.i === v) b.classList.add('bad'); });
+  } else {
+    hit = it._o[v] === it.termo;
+    btns.forEach(b => { const t = it._o[b.dataset.k]; if (t === it.termo) b.classList.add('ok'); else if (b.dataset.k === v) b.classList.add('bad'); });
+  }
+  const pts = hit ? GAMES[g].pts : 0; S.hits += hit ? 1 : 0; S.pts += pts; addScore(hit, pts);
+  feedback(hit, pts, `<p>${esc(it.explicacao)}</p>${extra}`);
+}
+
+// Caso prático: escolha + parecer avaliado pela IA
+let casePick = null;
+function pick(k) { casePick = k; document.querySelectorAll('.opt').forEach(b => b.classList.toggle('ok', +b.dataset.k === k)); }
+async function submitCase() {
+  if (S.done) return;
+  if (casePick === null) { $('fb').innerHTML = `<p class="mute ui text-sm">Escolha uma decisão antes de enviar.</p>`; return; }
+  S.done = true;
+  const it = S.data.itens[S.i], parecer = $('parecer').value.trim();
+  document.querySelectorAll('.opt,.btn').forEach(b => b.disabled = true);
+  $('fb').innerHTML = `<div class="spin"></div><p class="mute text-center text-sm mt-2">A IA está avaliando seu raciocínio…</p>`;
+  let nota = 0, fbk = '';
+  try {
+    const r = await gemini(`Caso: ${it.caso}\nDecisão correta (gabarito): ${it.decisoes[it.correta]}\nExplicação oficial: ${it.explicacao}\nDecisão do candidato: ${it.decisoes[casePick]}\nParecer do candidato: ${parecer || '(não escreveu)'}\nAvalie com rigor de banca. Retorne JSON: {"nota":0-10,"feedback":string com acertos, lacunas e fundamentos que faltaram}`,
+      'Você é examinador de Auditor Fiscal (FGV). Responda só com JSON válido em português.');
+    nota = Math.max(0, Math.min(10, +r.nota || 0)); fbk = r.feedback || '';
+  } catch (e) { if (e.key) { S.done = false; $('fb').innerHTML = `<p style="color:#f43f5e">${esc(e.message)}</p><button class="btn mt-3" onclick="openCfg()">Atualizar chave API</button>`; document.querySelectorAll('.opt,.btn').forEach(b => b.disabled = false); return; }
+    // fallback: avalia só pela decisão, sem travar o jogo
+    nota = casePick === it.correta ? 6 : 2; fbk = 'Avaliação da IA indisponível agora (' + e.message + ') — nota baseada apenas na decisão.';
+  }
+  document.querySelectorAll('.opt').forEach(b => { const k = +b.dataset.k; b.classList.remove('ok'); if (k === it.correta) b.classList.add('ok'); else if (k === casePick) b.classList.add('bad'); });
+  const hit = nota >= 6, pts = nota * 2; S.hits += hit ? 1 : 0; S.pts += pts; addScore(hit, pts);
+  feedback(hit, pts, `<p><b>Nota da IA: ${nota}/10.</b> ${esc(fbk)}</p><p class="mt-2"><b>Gabarito:</b> ${esc(it.explicacao)}</p>`);
+  casePick = null;
+}
+
+function feedback(hit, pts, html) {
+  const last = S.i + 1 >= S.data.itens.length;
+  $('fb').innerHTML = `<div class="rounded-xl p-4" style="background:${hit ? 'rgba(16,185,129,.12)' : 'rgba(244,63,94,.1)'}">
+    <p class="font-semibold ui">${hit ? 'Correto' : 'Não foi dessa vez'} · +${pts} pts</p><div class="mt-2 text-[.97rem] leading-relaxed">${html}</div>
+    <button class="btn mt-4" onclick="next()">${last ? 'Ver resultado' : 'Próxima'}</button></div>`;
+}
+
+function renderEnd() {
+  const n = S.data.itens.length;
+  $('stage').innerHTML = `<div class="card p-8 text-center">
+    <h2 class="text-2xl font-bold ui">${S.hits}/${n} acertos</h2>
+    <p class="mute mt-1">+${S.pts} pontos nesta rodada · tema: ${esc(S.topic)}</p>
+    <div class="flex flex-wrap gap-3 justify-center mt-6">
+      <button class="btn" onclick="start()">Nova rodada do mesmo tema</button>
+      <button class="btn2" onclick="$('topic').focus();window.scrollTo({top:0,behavior:'smooth'})">Mudar tema</button></div></div>`;
+}
+
+/* ---------- 5) INICIALIZAÇÃO ---------- */
+function renderGames() {
+  $('games').innerHTML = Object.entries(GAMES).map(([k, g]) =>
+    `<button class="chip ${k === selected ? 'on' : ''}" onclick="selected='${k}';renderGames()">
+      <span class="font-semibold ui">${g.name}</span><br><span class="mute text-sm">${g.desc}</span></button>`).join('');
+}
+if (localStorage.getItem('aq_theme') === 'dark' || (!localStorage.getItem('aq_theme') && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+$('topic').addEventListener('keydown', e => { if (e.key === 'Enter') start(); });
+renderGames(); renderStats(); updateKeyDot();
+if (!getKey()) setTimeout(() => openCfg('Informe sua chave da API Gemini para jogar.'), 400); // primeira visita
+</script>
+</body>
+</html>
